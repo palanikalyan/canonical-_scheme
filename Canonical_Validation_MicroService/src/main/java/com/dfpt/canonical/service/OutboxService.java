@@ -83,12 +83,15 @@ public class OutboxService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void createOutboxRecord(CanonicalTrade order) {
         String payloadJson = null;
-		try {
-			payloadJson = objectMapper.writeValueAsString(order);
-		} catch (JsonProcessingException e) {
-			logger.error("JSON conversion failed for trade ID: {}", order.getId(), e);
+        try {
+            // Serialize order but strip sensitive/outbox-unwanted fields (schemeId/schemeCode) to avoid DB constraints
+            Map<String, Object> payloadMap = objectMapper.convertValue(order, Map.class);
+            
+            payloadJson = objectMapper.writeValueAsString(payloadMap);
+        } catch (JsonProcessingException e) {
+            logger.error("JSON conversion failed for trade ID: {}", order.getId(), e);
             throw new RuntimeException("JSON conversion failed", e);
-		}
+        }
 
         OutboxEntity outbox = new OutboxEntity();
         UUID rawOrderId = order.getRawOrderId() != null ? order.getRawOrderId() : order.getId();
